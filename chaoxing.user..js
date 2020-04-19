@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         超星网课助手
+// @name         （新接口）超星网课助手
 // @namespace    xyenon.bid
-// @version      4.0.1
+// @version      4.0.2
 // @description  自动挂机看尔雅MOOC，支持视频、音频、文档、图书自动完成，章节测验自动答题提交，支持自动切换任务点、挂机阅读时长、自动登录等，解除各类功能限制，开放自定义参数
 // @author       XYenon
 // @match        *://*.chaoxing.com/*
