@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name         （新接口）超星网课助手
+// @name         （多接口）超星网课助手
 // @namespace    xyenon.bid
-// @version      4.0.3
+// @version      4.0.4
 // @description  自动挂机看尔雅MOOC，支持视频、音频、文档、图书自动完成，章节测验自动答题提交，支持自动切换任务点、挂机阅读时长、自动登录等，解除各类功能限制，开放自定义参数
 // @author       XYenon
 // @match        *://*.chaoxing.com/*
 // @match        *://*.edu.cn/*
 // @connect      api.xmlm8.com
 // @connect      wk.bcaqfy.xin
+// @connect      wk.92e.win
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -19,6 +20,7 @@
 const api_array = [
   "http://api.xmlm8.com/tk.php?t=", // 接口 0
   "http://wk.bcaqfy.xin/cxapi?tm=", // 接口 1
+  "https://wk.92e.win/wkapi.php?q=", // 接口 2
 ];
 
 // 设置修改后，需要刷新或重新打开网课页面才会生效
@@ -500,9 +502,14 @@ function findAnswer() {
     onload: function (xhr) {
       if (!setting.loop) {
       } else if (xhr.status == 200) {
-        var obj = $.parseJSON(xhr.responseText) || {};
+        let response = xhr.responseText;
+        if (response.startsWith("null")) {
+          response = response.slice(4);
+        }
+        var obj = $.parseJSON(response) || {};
         obj.data = obj.da || obj.answer;
-        if (obj.data != "") {
+        obj.code = obj.code || (obj.data == "" ? 0 : 1);
+        if (obj.code) {
           setting.div.children("div:eq(0)").text("正在搜索答案...");
           var td = '<td style="border: 1px solid;',
             data = String(obj.data)
@@ -538,7 +545,7 @@ function findAnswer() {
                 : "rgba(0, 150, 136, 0.6)"
             );
           setting.data[setting.num++] = {
-            code: obj.data == "" ? 0 : 1,
+            code: obj.code > 0 ? 1 : 0,
             question: question,
             option: obj.data,
             type: Number(type),
@@ -548,7 +555,7 @@ function findAnswer() {
             .children("div:eq(0)")
             .html(obj.data || setting.over + "服务器繁忙，正在重试...");
         }
-        setting.div.children("span").html(obj || "");
+        setting.div.children("span").html(obj.msg || obj || "");
       } else if (xhr.status == 403) {
         var html = xhr.responseText.indexOf("{")
           ? "请求过于频繁，建议稍后再试"
@@ -580,7 +587,7 @@ function fillAnswer($li, obj, type) {
     opt = obj.opt || str,
     state = setting.lose;
   // $li.find(':radio:checked').prop('checked', false);
-  obj.data != "" &&
+  obj.code > 0 &&
     $input
       .each(function (index) {
         if (this.value == "true") {
@@ -613,10 +620,10 @@ function fillAnswer($li, obj, type) {
       .end()
       .find("textarea")
       .each(function (index) {
-        index = (obj.data != "" && data[index]) || "";
+        index = (obj.code > 0 && data[index]) || "";
         UE.getEditor(this.name).setContent(index.trim());
       }).length;
-    (obj.data != "" && data.length == str) || setting.none || setting.lose++;
+    (obj.code > 0 && data.length == str) || setting.none || setting.lose++;
   } else {
     setting.none || setting.lose++;
   }
