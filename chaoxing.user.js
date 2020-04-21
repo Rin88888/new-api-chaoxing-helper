@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         （新接口）超星网课助手
 // @namespace    xyenon.bid
-// @version      4.0.2
+// @version      4.0.3
 // @description  自动挂机看尔雅MOOC，支持视频、音频、文档、图书自动完成，章节测验自动答题提交，支持自动切换任务点、挂机阅读时长、自动登录等，解除各类功能限制，开放自定义参数
 // @author       XYenon
 // @match        *://*.chaoxing.com/*
 // @match        *://*.edu.cn/*
 // @connect      api.xmlm8.com
+// @connect      wk.bcaqfy.xin
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -15,8 +16,14 @@
 // @license      MIT
 // ==/UserScript==
 
+const api_array = [
+  "http://api.xmlm8.com/tk.php?t=", // 接口 0
+  "http://wk.bcaqfy.xin/cxapi?tm=", // 接口 1
+];
+
 // 设置修改后，需要刷新或重新打开网课页面才会生效
 var setting = {
+    api: 1, // 答题接口编号，参考上方
     // 5E3 == 5000，科学记数法，表示毫秒数
     time: 5e3, // 默认响应速度为5秒，不建议小于3秒
     token: "", // 捐助用户可以使用定制功能，更精准的匹配答案，此处填写捐助后获取的识别码
@@ -488,22 +495,22 @@ function findAnswer() {
     type = $TiMu.find("input[name^=answertype]:eq(0)").val() || "-1";
   GM_xmlhttpRequest({
     method: "GET",
-    url: "http://api.xmlm8.com/tk.php?t=" + encodeURIComponent(question),
-    headers: {
-      "Content-type": "application/x-www-form-urlencoded",
-    },
+    url: api_array[setting.api] + encodeURIComponent(question),
     timeout: setting.time,
     onload: function (xhr) {
       if (!setting.loop) {
       } else if (xhr.status == 200) {
         var obj = $.parseJSON(xhr.responseText) || {};
-        if (obj.da !== "×") {
+        obj.data = obj.da || obj.answer;
+        if (obj.data != "") {
           setting.div.children("div:eq(0)").text("正在搜索答案...");
           var td = '<td style="border: 1px solid;',
-            data = String(obj.da)
+            data = String(obj.data)
               .replace(/&/g, "&amp;")
               .replace(/<(?!img)/g, "&lt;");
-          obj.da = /^http/.test(data) ? '<img src="' + obj.da + '">' : obj.da;
+          obj.data = /^http/.test(data)
+            ? '<img src="' + obj.data + '">'
+            : obj.data;
           $(
             "<tr>" +
               td +
@@ -518,7 +525,7 @@ function findAnswer() {
               "</td>" +
               td +
               '" title="点击可复制">' +
-              (/^http/.test(data) ? obj.da : "") +
+              (/^http/.test(data) ? obj.data : "") +
               data +
               "</td>" +
               "</tr>"
@@ -531,17 +538,17 @@ function findAnswer() {
                 : "rgba(0, 150, 136, 0.6)"
             );
           setting.data[setting.num++] = {
-            code: obj.da === "×" ? 0 : 1,
+            code: obj.data == "" ? 0 : 1,
             question: question,
-            option: obj.da,
+            option: obj.data,
             type: Number(type),
           };
         } else {
           setting.div
             .children("div:eq(0)")
-            .html(obj.da || setting.over + "服务器繁忙，正在重试...");
+            .html(obj.data || setting.over + "服务器繁忙，正在重试...");
         }
-        setting.div.children("span").html(obj.msg || "");
+        setting.div.children("span").html(obj || "");
       } else if (xhr.status == 403) {
         var html = xhr.responseText.indexOf("{")
           ? "请求过于频繁，建议稍后再试"
@@ -568,18 +575,20 @@ function findAnswer() {
 
 function fillAnswer($li, obj, type) {
   var $input = $li.find(":radio, :checkbox"),
-    str = String(obj.da).toCDB() || new Date().toString(),
+    str = String(obj.data).toCDB() || new Date().toString(),
     data = str.split(/#|\x01|\|/),
     opt = obj.opt || str,
     state = setting.lose;
   // $li.find(':radio:checked').prop('checked', false);
-  obj.da !== "×" &&
+  obj.data != "" &&
     $input
       .each(function (index) {
         if (this.value == "true") {
-          data.join().match(/(^|,)(正确|是|对|√|T|ri)(,|$)/) && this.click();
+          data.join().match(/(^|,)(正确|是|对|√|T|ri|right)(,|$)/) &&
+            this.click();
         } else if (this.value == "false") {
-          data.join().match(/(^|,)(错误|否|错|×|F|wr)(,|$)/) && this.click();
+          data.join().match(/(^|,)(错误|否|错|×|F|wr|false)(,|$)/) &&
+            this.click();
         } else {
           var tip =
             filterImg($li.eq(index).find(".after")).toCDB() ||
@@ -599,15 +608,15 @@ function fillAnswer($li, obj, type) {
         ? ($input[Math.floor(Math.random() * $input.length)] || $()).click()
         : setting.lose++);
   } else if (type.match(/^(2|[4-9]|1[08])$/)) {
-    data = String(obj.da).split(/#|\x01|\|/);
+    data = String(obj.data).split(/#|\x01|\|/);
     str = $li
       .end()
       .find("textarea")
       .each(function (index) {
-        index = (obj.da !== "×" && data[index]) || "";
+        index = (obj.data != "" && data[index]) || "";
         UE.getEditor(this.name).setContent(index.trim());
       }).length;
-    (obj.da !== "×" && data.length == str) || setting.none || setting.lose++;
+    (obj.data != "" && data.length == str) || setting.none || setting.lose++;
   } else {
     setting.none || setting.lose++;
   }
@@ -886,22 +895,10 @@ function submitAnswer($job, data) {
     "无";
   data.length &&
     GM_xmlhttpRequest({
-      method: "POST",
+      method: "GET",
       url:
-        "http://mooc.forestpolice.org/upload/cx/" +
-        (setting.token || 0) +
-        "/?workRelationId=" +
-        $("#workId").val(),
-      headers: {
-        "Content-type": "application/x-www-form-urlencoded",
-      },
-      data:
-        "course=" +
-        encodeURIComponent(setting.curs) +
-        "&data=" +
-        encodeURIComponent((Ext.encode || JSON.stringify)(data)) +
-        "&id=" +
-        $("#jobid").val().slice(5),
+        api_array[setting.api] +
+        encodeURIComponent((Ext.encode || JSON.stringify)(data)),
     });
   $job.addClass("ans-job-finished");
 }
