@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         （多接口）超星网课助手
 // @namespace    xyenon.bid
-// @version      4.0.4
+// @version      4.0.5
 // @description  自动挂机看尔雅MOOC，支持视频、音频、文档、图书自动完成，章节测验自动答题提交，支持自动切换任务点、挂机阅读时长、自动登录等，解除各类功能限制，开放自定义参数
 // @author       XYenon
 // @match        *://*.chaoxing.com/*
@@ -13,7 +13,7 @@
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
-// @supportURL   https://greasyfork.org/zh-CN/scripts/369625/feedback
+// @supportURL   https://greasyfork.org/zh-CN/scripts/401425-%E5%A4%9A%E6%8E%A5%E5%8F%A3-%E8%B6%85%E6%98%9F%E7%BD%91%E8%AF%BE%E5%8A%A9%E6%89%8B/feedback
 // @license      MIT
 // ==/UserScript==
 
@@ -508,7 +508,13 @@ function findAnswer() {
         }
         var obj = $.parseJSON(response) || {};
         obj.data = obj.da || obj.answer;
-        obj.code = obj.code || (obj.data == "" ? 0 : 1);
+        obj.code = obj.hasOwnProperty("code")
+          ? obj.code
+          : obj.hasOwnProperty("data")
+          ? obj.data == ""
+            ? 0
+            : 1
+          : 0;
         if (obj.code) {
           setting.div.children("div:eq(0)").text("正在搜索答案...");
           var td = '<td style="border: 1px solid;',
