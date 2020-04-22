@@ -1,14 +1,15 @@
 // ==UserScript==
 // @name         （多接口）超星网课助手
 // @namespace    xyenon.bid
-// @version      4.0.6
+// @version      4.0.7
 // @description  自动挂机看尔雅MOOC，支持视频、音频、文档、图书自动完成，章节测验自动答题提交，支持自动切换任务点、挂机阅读时长、自动登录等，解除各类功能限制，开放自定义参数
-// @author       XYenon
+// @author       wyn665817 & XYenon
 // @match        *://*.chaoxing.com/*
 // @match        *://*.edu.cn/*
 // @connect      api.xmlm8.com
 // @connect      wk.bcaqfy.xin
 // @connect      wk.92e.win
+// @connect      47.112.247.80
 // @run-at       document-end
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
@@ -17,19 +18,16 @@
 // @license      MIT
 // ==/UserScript==
 
-function getRandomInteger(min, max) {
-  return Math.floor(Math.random() * (max - min)) + min;
-}
-
 const api_array = [
   "http://api.xmlm8.com/tk.php?t=", // 接口 0
   "http://wk.bcaqfy.xin/cxapi?tm=", // 接口 1
   "https://wk.92e.win/wkapi.php?q=", // 接口 2
+  "http://47.112.247.80/wkapi.php?q=", // 接口 3
 ];
 
 // 设置修改后，需要刷新或重新打开网课页面才会生效
 var setting = {
-    api: getRandomInteger(0, api_array.length), // 答题接口编号，参考上方，默认随机
+    api: null, // 答题接口编号，参考上方，默认随机
     // 5E3 == 5000，科学记数法，表示毫秒数
     time: 5e3, // 默认响应速度为5秒，不建议小于3秒
     token: "", // 捐助用户可以使用定制功能，更精准的匹配答案，此处填写捐助后获取的识别码
@@ -72,6 +70,14 @@ var setting = {
   _self = unsafeWindow,
   url = location.pathname,
   top = _self;
+
+function getRandomInteger(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+if (setting.api === null) {
+  setting.api = getRandomInteger(0, api_array.length);
+}
 
 if (url != "/studyApp/studying" && top != _self.top)
   document.domain = location.host.replace(/.+?\./, "");
@@ -511,7 +517,7 @@ function findAnswer() {
           response = response.slice(4);
         }
         var obj = $.parseJSON(response) || {};
-        obj.data = obj.da || obj.answer;
+        obj.data = obj.data || obj.da || obj.answer;
         obj.code = obj.hasOwnProperty("code")
           ? obj.code
           : obj.hasOwnProperty("data")
